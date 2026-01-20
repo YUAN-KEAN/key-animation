@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Key Collection Animation - Pop & Glide</title>
+    <style>
+        :root {
+            --primary-color: #000000;
+        }
+
+        body {
+            margin: 0;
+            background: #ffffff;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* 顶部钱包 */
+        #wallet {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: #F8F9FB;
+            backdrop-filter: blur(10px);
+            padding: 10px 25px;
+            border-radius: 30px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 200;
+        }
+
+        #wallet.bump {
+            transform: scale(1.15);
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .wallet-icon {
+            font-size: 28px;
+            margin-right: 12px;
+        }
+
+        #balance {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* 底部按钮 */
+        #claim-btn {
+            position: fixed;
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 45px;
+            font-size: 20px;
+            color: #1a1a1a;
+            background-color: #ffe046;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 800;
+            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        #claim-btn:hover {
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 15px 30px rgba(255, 215, 0, 0.6);
+        }
+
+        #claim-btn:active {
+            transform: translateX(-50%) translateY(2px);
+        }
+
+        #claim-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: translateX(-50%);
+        }
+
+        /* 飞行的钥匙元素 */
+        .key-element {
+            position: fixed;
+            width: 64px;
+            /* 飞行时大一点，能看清细节 */
+            height: 64px;
+            background-image: url('/Users/wangjiayuan1/Downloads/key-animation/key.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            pointer-events: none;
+            z-index: 300;
+            display: none;
+            transform-origin: center center;
+            /* 重点：去掉默认的文字样式，确保只有背景图 */
+        }
+
+        /* 钱包里的小图标 */
+        .wallet-icon-img {
+            width: 32px;
+            /* 适合导航栏的大小 */
+            height: 32px;
+            margin-right: 8px;
+            object-fit: contain;
+            /* 如果你的图片颜色太暗，可以用 filter 稍微调亮一点 */
+
+            /* 画布层 */
+            #particle-canvas {
+                position: fixed;
+                top: 0;
+                left: 0;
+                pointer-events: none;
+                z-index: 150;
+            }
+    </style>
+</head>
+
+<body>
+
+    <div id="wallet">
+        <img src="/Users/wangjiayuan1/Downloads/key-animation/key.png" class="wallet-icon-img" alt="key">
+        <span id="balance">0</span>
+    </div>
+
+    <button id="claim-btn">完成任务</button>
+
+    <div id="key" class="key-element"></div>
+    <canvas id="particle-canvas"></canvas>
+
+    <script>
+        const btn = document.getElementById('claim-btn');
+        const wallet = document.getElementById('wallet');
+        const balanceEl = document.getElementById('balance');
+        const keyEl = document.getElementById('key');
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let balance = 0;
+        let particles = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- 简约粒子类 (保持不变) ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 1.5 + 1.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5 + 0.5; // 增加一点轻微的下落感
+                this.colorRGB = '255, 223, 0'; // 更亮的金色
+                this.life = 1;
+                this.decay = 0.03;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= this.decay;
+            }
+            draw() {
+                ctx.fillStyle = `rgba(${this.colorRGB}, ${this.life})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                    i--;
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+
+        // --- 核心动画逻辑 ---
+        btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+            btn.disabled = true;
+
+            // 1. 计算坐标
+            const startRect = btn.getBoundingClientRect();
+            const endRect = wallet.getBoundingClientRect();
+            const startX = startRect.left + startRect.width / 2;
+            const startY = startRect.top + startRect.height / 2;
+            const endX = endRect.left + endRect.width / 2;
+            const endY = endRect.top + endRect.height / 2;
+            // 偏移量：用于将元素的中心对齐到坐标点 (假设钥匙大约 48x48)
+            const offset = 24;
+
+            // 2. 准备阶段：设置初始位置，准备放大
+            keyEl.style.display = 'block';
+            // 关键点：加上弹性的 CSS transition
+            keyEl.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease';
+            // 初始状态：位于按钮中心，极小，透明，固定角度 -45度
+            keyEl.style.transform = `translate(${startX - offset}px, ${startY - offset}px) scale(0.1) rotate(0deg)`;
+            keyEl.style.opacity = '0';
+
+            // 强制浏览器重绘，确保初始状态被应用，从而触发 transition
+            keyEl.getBoundingClientRect();
+
+            // 3. 执行“放大展示”动画 (Pop-up)
+            // 目标状态：原位放大到 1.8倍，不透明
+            keyEl.style.transform = `translate(${startX - offset}px, ${startY - offset}px) scale(1.8) rotate(0deg)`;
+            keyEl.style.opacity = '1';
+
+            // 4. 等待放大动画结束，开始飞行
+            // setTimeout 的时间要略大于 transition 的时间 (0.5s -> 500ms)
+            setTimeout(() => {
+                startFlying(startX, startY, endX, endY, offset);
+            }, 550);
+        });
+
+        function startFlying(startX, startY, endX, endY, offset) {
+            // 【重要】移除 CSS transition，否则会与 JS 动画冲突导致卡顿
+            keyEl.style.transition = 'none';
+
+            const cpX = (startX + endX) / 2 - 120; // 控制点再往左移一点，弧度更大
+            const cpY = Math.min(startY, endY) - 150; // 控制点更高，抛物线更明显
+
+            let progress = 0;
+            // 稍微加快一点飞行速度
+            const speed = 0.025;
+
+            function move() {
+                progress += speed;
+
+                if (progress <= 1) {
+                    const t = progress;
+                    // 贝塞尔曲线计算位置
+                    const x = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * cpX + t * t * endX;
+                    const y = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * cpY + t * t * endY;
+
+                    // 计算飞行时的缩放：从展示时的 1.8倍 平滑过渡到进入钱包时的 0.8倍
+                    const currentScale = 1.8 - (t * 1.0);
+
+                    // 【核心修改点】飞行过程中保持 rotate(-45deg) 不变
+                    keyEl.style.transform = `translate(${x - offset}px, ${y - offset}px) rotate(0deg) scale(${currentScale})`;
+
+                    // 生成拖尾粒子 (位置稍微调整到钥匙尾部)
+                    particles.push(new Particle(x - 5, y + 10));
+
+                    requestAnimationFrame(move);
+                } else {
+                    // 到达终点
+                    keyEl.style.display = 'none';
+                    keyEl.style.opacity = '0'; // 重置透明度给下次使用
+                    completeAnimation();
+                }
+            }
+            move();
+        }
+
+        function completeAnimation() {
+            balance++;
+            balanceEl.innerText = balance;
+            wallet.classList.add('bump');
+            setTimeout(() => {
+                wallet.classList.remove('bump');
+                btn.disabled = false;
+            }, 300);
+        }
+    </script>
+</body>
+
+</html>
